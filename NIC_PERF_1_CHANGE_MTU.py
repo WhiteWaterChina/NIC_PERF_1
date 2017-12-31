@@ -18,18 +18,12 @@ path = os.path.abspath(os.path.join(os.path.dirname(__file__),os.pardir,os.pardi
 sys.path.append(path)
 
 #change mtu
-change_mtu = subprocess.Popen(["ifconfig", "%s" %deviceName, "mtu", "%s" % mtu_value], stdout=subprocess.PIPE)
+change_mtu = subprocess.Popen("ifconfig %s mtu %s" % (deviceName, mtu_value), shell=True,stdout=subprocess.PIPE)
 
 #check mtu
-check_mtu = subprocess.Popen(["ip", "addr", "show"], stdout=subprocess.PIPE).stdout.readlines()
-mtu_list = []
-pattern_mtu = re.compile(r".*%s.*mtu\s*(\d*)" % deviceName)
-for item in check_mtu:
-    mtu_now = re.search(pattern=pattern_mtu, string=item)
-    if mtu_now is not None:
-        mtu_list.append(mtu_now.groups()[0])
+check_mtu = subprocess.Popen("ip addr show|grep %s|grep mtu|awk '{match($0,/mtu\s*([0-9]*)/,a);print a[1]}'" % deviceName, shell=True,stdout=subprocess.PIPE).stdout.readlines()[0].strip()
 
-if mtu_value not in mtu_list:
+if check_mtu != mtu_value:
     print "MTU set failed! Please check! Need %s!" % mtu_value
     sys.exit(1)
 print "MTU set successfully!"

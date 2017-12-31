@@ -23,15 +23,7 @@ path = os.path.abspath(os.path.join(os.path.dirname(__file__),os.pardir,os.pardi
 sys.path.append(path)
 
 #get mtu now
-check_mtu = subprocess.Popen(["ip", "addr", "show"], stdout=subprocess.PIPE).stdout.readlines()
-mtu_list = []
-pattern_mtu = re.compile(r".*%s.*mtu\s*(\d*)" % client_devicename)
-for item in check_mtu:
-    mtu_now = re.search(pattern=pattern_mtu, string=item)
-    if mtu_now is not None:
-        mtu_list.append(mtu_now.groups()[0])
-mtu_current = mtu_list[0]
-
+mtu_current = subprocess.Popen("ip addr show|grep %s|grep mtu|awk '{match($0,/mtu\s*([0-9]*)/,a);print a[1]}'" % client_devicename, shell=True,stdout=subprocess.PIPE).stdout.readlines()[0].strip()
 
 temp = open("/tmp/tools/name", mode="r")
 log_dir_prefix = temp.readlines()[0].strip()
@@ -76,7 +68,7 @@ log_iperf = open(logname_result_iperf, mode="w")
 iperf_test_sut = subprocess.Popen("numactl --cpunodebind=netdev:%s --membind=netdev:%s iperf3 -c %s -t 100 -i 5 --forceflush 5 -P %s | grep -i sum" % (client_devicename, client_devicename, sut_ip, N) ,shell=True, stdout=log_iperf)
 iperf_test_sut.wait()
 log_iperf.close()
-#close iperf3 remote
+#close iperf3 remotely
 ssh_start_iperf_sut.connect(sut_ip, 22, username=sut_username, password=sut_password)
 ssh_start_iperf_sut.exec_command(command='killall -9 iperf3')
 ssh_start_iperf_sut.close()
