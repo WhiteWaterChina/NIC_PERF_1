@@ -79,6 +79,7 @@ for mtu_current in mtu_list:
     #calculate N
     speed_now_list = subprocess.Popen(["ethtool", "%s" % client_devicename],stdout=subprocess.PIPE).stdout.readlines()
     pattern_speed = re.compile(r"Speed:\s*(\d*)Mb/s")
+    N = 1
     for item_speed in speed_now_list:
         speed_temp = re.search(pattern=pattern_speed, string=item_speed)
         if speed_temp is not None:
@@ -93,7 +94,7 @@ for mtu_current in mtu_list:
     elif speed_now == "100000":
         N = 11
     else:
-        N = 1
+        pass
     log_iperf = open(logname_result_iperf, mode="w")
     iperf_test_sut = subprocess.Popen("numactl --cpunodebind=netdev:%s --membind=netdev:%s iperf3 -c %s -t 100 -i 5 --forceflush 5 -P %s | grep -i sum" % (client_devicename, client_devicename, sut_test_ip, N) ,shell=True, stdout=log_iperf)
     iperf_test_sut.wait()
