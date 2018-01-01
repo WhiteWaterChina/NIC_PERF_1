@@ -39,14 +39,29 @@ if not os.path.isdir(log_dir_prefix):
 devicePath=log_dir_prefix + '/' + client_devicename
 if not os.path.isdir(devicePath):
     os.makedirs(devicePath)
-
+#calculate N
+speed_now_list = subprocess.Popen("ethtool %s|grep Speed|awk -F ':' '{print $2}'|awk '{match($0,/([0-9]+)/,a);print a[1]}'" % client_devicename, shell=True, stdout=subprocess.PIPE)
+speed_now_list.wait()
+speed_now = speed_now_list.stdout.readlines()[0].strip()
+if speed_now == "10000":
+    N = 2
+elif speed_now == "25000":
+    N = 3
+elif speed_now == "40000":
+    N = 5
+elif speed_now == "100000":
+    N = 11
+else:
+    N = 2
 for mtu_current in mtu_list:
     logname_result_iperf = devicePath + "/" + "result_iperf_client_mtu_%s.txt" % mtu_current
 
     #set mtu client
     change_mtu_client = subprocess.Popen("ifconfig %s mtu %s" % (client_devicename, mtu_current), shell=True, stdout=subprocess.PIPE)
-    check_mtu_client = subprocess.Popen("ip addr show|grep %s|grep mtu|awk '{match($0,/mtu\s*([0-9]*)/,a);print a[1]}'" % client_devicename, shell=True, stdout=subprocess.PIPE).stdout.readlines()[0].strip()
-
+    change_mtu_client.wait()
+    check_mtu_client_temp = subprocess.Popen("ip addr show|grep %s|grep mtu|awk '{match($0,/mtu\s*([0-9]*)/,a);print a[1]}'" % client_devicename, shell=True, stdout=subprocess.PIPE)
+    check_mtu_client_temp.wait()
+    check_mtu_client = check_mtu_client_temp.stdout.readlines()[0].strip()
     if check_mtu_client != mtu_current:
         print "Client MTU for %s set failed! Please check! Need %s,but now %s" % (client_devicename, mtu_current, check_mtu_client)
         sys.exit(1)
@@ -76,25 +91,6 @@ for mtu_current in mtu_list:
     ssh_to_sut.exec_command(command='numactl --cpunodebind=netdev:%s --membind=netdev:%s iperf3 -s -i 5 --forceflush 5|grep -i sum &' % (sut_devicename, sut_devicename))
     ssh_to_sut.close()
     #client iperf
-    #calculate N
-    speed_now_list = subprocess.Popen(["ethtool", "%s" % client_devicename],stdout=subprocess.PIPE).stdout.readlines()
-    pattern_speed = re.compile(r"Speed:\s*(\d*)Mb/s")
-    N = 1
-    for item_speed in speed_now_list:
-        speed_temp = re.search(pattern=pattern_speed, string=item_speed)
-        if speed_temp is not None:
-            speed_now = speed_temp.groups()[0]
-
-    if speed_now == "10000":
-        N = 2
-    elif speed_now == "25000":
-        N = 3
-    elif speed_now == "40000":
-        N = 5
-    elif speed_now == "100000":
-        N = 11
-    else:
-        pass
     log_iperf = open(logname_result_iperf, mode="w")
     iperf_test_sut = subprocess.Popen("numactl --cpunodebind=netdev:%s --membind=netdev:%s iperf3 -c %s -t 100 -i 5 --forceflush 5 -P %s | grep -i sum" % (client_devicename, client_devicename, sut_test_ip, N) ,shell=True, stdout=log_iperf)
     iperf_test_sut.wait()
